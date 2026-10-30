@@ -1,5 +1,6 @@
 import{DurakRules}from'./rules.mjs';
 import{randomId}from'./auth.mjs';
+import{inviteUrl}from'./telegram-app.mjs';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json;charset=utf-8','cache-control':'no-store'}}),clone=v=>JSON.parse(JSON.stringify(v));
 const EMOJIS=['❤️','😂','😎','👍','🤝','👏','😈','😤','😡','👎','💩','🤬','😭','😱','🙄','💔','💀','🤡'];
 export class Room{
@@ -8,7 +9,7 @@ export class Room{
   const path=new URL(request.url).pathname,user=JSON.parse(request.headers.get('x-redo-user')||'null'),now=Date.now();
   if(path==='/quota'){let times=await this.ctx.storage.get('quota')||[];times=times.filter(t=>now-t<60000);if(times.length>=6)return json({error:'Слишком много приглашений. Попробуйте через минуту'},429);times.push(now);await this.ctx.storage.put('quota',times);await this.ctx.storage.setAlarm(now+65000);return json({ok:true})}
   if(path==='/create'){
-   if(this.data)return json({error:'Комната уже существует'},409);const{code}=await request.json();this.data={code,createdAt:now,expiresAt:now+180000,players:[{...user,ready:false}],revision:0,gameId:0,clock:null,animation:null,emojiNext:[0,0],emojiCount:[0,0],handled:[[],[]],tickets:{},lastTouch:now};await this.save();await this.schedule();return json(this.lobby(0));
+   if(this.data)return json({error:'Комната уже существует'},409);const{code,launchUrl}=await request.json();this.data={code,launchUrl:launchUrl||'https://t.me/'+this.env.BOT_USERNAME,createdAt:now,expiresAt:now+180000,players:[{...user,ready:false}],revision:0,gameId:0,clock:null,animation:null,emojiNext:[0,0],emojiCount:[0,0],handled:[[],[]],tickets:{},lastTouch:now};await this.save();await this.schedule();return json(this.lobby(0));
   }
   if(!this.data)return json({error:'Приглашение не найдено'},404);
   await this.advance();
@@ -27,7 +28,7 @@ export class Room{
   return json({error:'Не найдено'},404);
  }catch(e){return json({error:e.message||'Ошибка комнаты'},400)}})}
  seat(id){return this.data.players.findIndex(p=>p.id===id)}
- lobby(seat){return{code:this.data.code,seat,expiresAt:this.data.expiresAt,inviteUrl:'https://t.me/'+this.env.BOT_USERNAME+(this.env.APP_SHORT_NAME?'/'+this.env.APP_SHORT_NAME:'')+'?startapp='+this.data.code}}
+ lobby(seat){return{code:this.data.code,seat,expiresAt:this.data.expiresAt,inviteUrl:inviteUrl(this.data.launchUrl||'https://t.me/'+this.env.BOT_USERNAME,this.data.code)}}
  view(seat){const s=this.rules.snapshot();return{started:s.started,trump:s.trump,hand:s.hands[seat],opponentCount:s.hands[1-seat].length,stockCount:s.stock.length,table:s.table,discardCount:s.discard.length,attacker:s.attacker,limit:s.limit,pending:s.pending,result:this.data.animation?null:s.result}}
  message(seat,type='state',extra={}){return{type,serverNow:Date.now(),revision:this.data.revision,gameId:this.data.gameId,...this.lobby(seat),players:this.data.players.map((p,i)=>({name:p.name,ready:p.ready,connected:this.ctx.getWebSockets().some(w=>w.deserializeAttachment()?.seat===i)})),view:this.view(seat),busy:!!this.data.animation,clock:this.data.clock,...extra}}
  publish(type='state',extra={}){for(const ws of this.ctx.getWebSockets()){try{const seat=ws.deserializeAttachment().seat;ws.send(JSON.stringify(this.message(seat,type,typeof extra==='function'?extra(seat):extra)))}catch{}}}

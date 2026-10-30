@@ -1,4 +1,5 @@
 import{telegramUser,sessionToken,readSession,randomId}from'./auth.mjs';
+import{telegramApp}from'./telegram-app.mjs';
 export{Room}from'./room.mjs';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json;charset=utf-8','cache-control':'no-store'}});
 export default{async fetch(request,env){
@@ -22,7 +23,7 @@ export default{async fetch(request,env){
   const user=await readSession((request.headers.get('Authorization')||'').replace(/^Bearer /,''),env.SESSION_SECRET),headers={'content-type':'application/json','x-redo-user':JSON.stringify(user)};
   if(url.pathname==='/api/rooms'){
    const quota=await env.ROOMS.get(env.ROOMS.idFromName('quota:'+user.id)).fetch(new Request('https://room/quota',{method:'POST',headers}));if(!quota.ok)return cors(quota);
-   const code=randomId(18),room=env.ROOMS.get(env.ROOMS.idFromName(code));return cors(await room.fetch(new Request('https://room/create',{method:'POST',headers,body:JSON.stringify({code})})));
+   const app=await telegramApp(env),code=randomId(18),room=env.ROOMS.get(env.ROOMS.idFromName(code));return cors(await room.fetch(new Request('https://room/create',{method:'POST',headers,body:JSON.stringify({code,launchUrl:app.launchUrl})})));
   }
   if(match&&['join','ticket'].includes(match[2]))return cors(await env.ROOMS.get(env.ROOMS.idFromName(match[1])).fetch(new Request('https://room/'+match[2],{method:'POST',headers})));
   return cors(json({error:'Маршрут не найден'},404));
