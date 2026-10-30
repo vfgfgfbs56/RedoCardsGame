@@ -3,9 +3,9 @@ main = "src/worker.mjs"
 compatibility_date = "2025-09-01"
 
 [vars]
-FRONTEND_ORIGIN = "https://YOUR_USERNAME.github.io"
-BOT_USERNAME = "YOUR_BOT_USERNAME"
-APP_SHORT_NAME = "cards"
+FRONTEND_ORIGIN = "https://vfgfgfbs56.github.io/RedoCardsGame/"
+BOT_USERNAME = "RedoCardsBot"
+APP_SHORT_NAME = "RedoCards"
 
 [[durable_objects.bindings]]
 name = "ROOMS"
